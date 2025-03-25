@@ -12,6 +12,7 @@
 #include <queue>
 #include <boost/asio.hpp>  // Boost library for networking
 #include <openssl/sha.h>  // OpenSSL for cryptographic hashing
+#include <openssl/evp.h>  // For SHA256
 
 using namespace boost::asio;
 using ip::tcp;
@@ -38,6 +39,81 @@ struct Transaction {
 
     std::string toString() const {
         return "Sender: " + sender + " | Receiver: " + receiver + " | Amount: " + std::to_string(amount);
+    }
+};
+
+// Block Structure for Blockchain
+struct Block {
+    std::string previousHash;
+    std::string hash;
+    std::vector<Transaction> transactions;
+    long timestamp;
+    int nonce;
+
+    // Calculate block hash using SHA-256
+    std::string calculateHash() {
+        std::stringstream ss;
+        ss << previousHash << timestamp << nonce;
+        for (const auto& tx : transactions) {
+            ss << tx.toString();
+        }
+        return sha256(ss.str());
+    }
+
+    // Proof of Work (Mining)
+    void mineBlock(int difficulty) {
+        std::string target(difficulty, '0');
+        while (hash.substr(0, difficulty) != target) {
+            nonce++;
+            hash = calculateHash();
+        }
+        std::cout << "Block mined: " << hash << std::endl;
+    }
+};
+
+// Blockchain Structure
+class Blockchain {
+public:
+    std::vector<Block> chain;
+    int difficulty = 4;  // Mining difficulty (e.g., how many zeros in the hash)
+
+    Blockchain() {
+        // Create genesis block
+        Block genesisBlock;
+        genesisBlock.timestamp = std::time(0);
+        genesisBlock.previousHash = "0";
+        genesisBlock.nonce = 0;
+        genesisBlock.transactions.push_back(Transaction{"", "", 0});
+        genesisBlock.hash = genesisBlock.calculateHash();
+        chain.push_back(genesisBlock);
+    }
+
+    void addBlock(Block& newBlock) {
+        newBlock.previousHash = chain.back().hash;
+        newBlock.hash = newBlock.calculateHash();
+        newBlock.mineBlock(difficulty);
+        chain.push_back(newBlock);
+    }
+    
+    void printChain() {
+        for (auto& block : chain) {
+            std::cout << "Block Hash: " << block.hash << std::endl;
+        }
+    }
+    
+private:
+    std::string sha256(const std::string str) {
+        unsigned char hash[SHA256_DIGEST_LENGTH];
+        SHA256_CTX sha256_CTX;
+        SHA256_Init(&sha256_CTX);
+        SHA256_Update(&sha256_CTX, str.c_str(), str.length());
+        SHA256_Final(hash, &sha256_CTX);
+        
+        std::stringstream ss;
+        for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+            ss << std::hex << (int)hash[i];
+        }
+        return ss.str();
     }
 };
 
@@ -116,7 +192,7 @@ void connectToPeer(const std::string& ip, int port) {
     }
 }
 
-// Mining Configuration (placeholder for actual mining logic)
+// Mining Configuration (proof-of-work)
 void configureMining() {
     std::cout << "Mining configuration completed!" << std::endl;
 }
@@ -185,3 +261,4 @@ int main() {
     
     return 0;
 }
+
