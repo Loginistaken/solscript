@@ -1,215 +1,46 @@
 #include <iostream>
-#include <vector>
-#include <ctime>
-#include <sstream>
+#include <fstream>
 #include <string>
+#include <cstdlib>
 #include <thread>
+#include <memory>
+#include <future>
+#include <chrono>
+#include <vector>
 #include <mutex>
-#include <map>
-#include <boost/asio.hpp>
+#include <sstream>
+#include <queue>
+#include <boost/asio.hpp>  // Boost library for networking
+#include <openssl/sha.h>  // OpenSSL for cryptographic hashing
 
-using namespace std;
 using namespace boost::asio;
+using ip::tcp;
 
-mutex blockchainMutex;
+std::mutex mtx;  // Mutex for thread safety
+std::queue<std::string> transactionQueue;  // Simple transaction queue
 
-class Block {
-public:
-    int index;
-    time_t timestamp;
-    string prevHash;
-    string hash;
-    string data;
+// Blockchain Network Configurations
+struct BlockchainConfig {
+    std::string coinName = "SolScriptCoin";
+    std::string oxAddress;
+    std::string oxID;
+    std::string genesisBlock;
+    double totalSupply = 1000000000000;
+    double burnRate = 0.02;
+    double ownerVault = 1000000000;
+};
 
-    Block(int idx, string prevHash, string data) {
-        this->index = idx;
-        this->timestamp = time(0);
-        this->prevHash = prevHash;
-        this->data = data;
-        this->hash = calculateHash();
-    }
+// Transaction Structure
+struct Transaction {
+    std::string sender;
+    std::string receiver;
+    double amount;
 
-    string calculateHash() {
-        stringstream ss;
-        ss << index << timestamp << prevHash << data;
-        return to_string(hash<string>{}(ss.str()));
+    std::string toString() const {
+        return "Sender: " + sender + " | Receiver: " + receiver + " | Amount: " + std::to_string(amount);
     }
 };
 
-class Blockchain {
-public:
-    vector<Block> chain;
-    Blockchain() {
-        chain.emplace_back(Block(0, "0", "Genesis Block"));
-    }
-    void addBlock(string data) {
-        lock_guard<mutex> lock(blockchainMutex);
-        chain.emplace_back(Block(chain.size(), chain.back().hash, data));
-    }
-};
-
-class P2PNetwork {
-public:
-    io_service ioService;
-    P2PNetwork() {}
-    void startServer(int port) {
-        ip::tcp::acceptor acceptor(ioService, ip::tcp::endpoint(ip::tcp::v4(), port));
-        while (true) {
-            ip::tcp::socket socket(ioService);
-            acceptor.accept(socket);
-            cout << "Connection received" << endl;
-        }
-    }
-};
-
-void runMining(Blockchain &blockchain) {
-    while (true) {
-        this_thread::sleep_for(chrono::seconds(5));
-        blockchain.addBlock("New transaction block");
-        cout << "Mined a new block!" << endl;
-    }
-}
-
-int main() {
-    Blockchain blockchain;
-    P2PNetwork network;
-
-    thread miningThread(runMining, ref(blockchain));
-    thread serverThread(&P2PNetwork::startServer, &network, 8080);
-
-    miningThread.join();
-    serverThread.join();
-
-    return 0;
-}
-// Hashing Function
-string sha256(const string& data) {
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256((const unsigned char*)data.c_str(), data.length(), hash);
-    stringstream ss;
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-        ss << hex << (int)hash[i];
-    }
-    return ss.str();
-}
-
-// Block Structure
-struct Block {
-    int index;
-    string previousHash;
-    string timestamp;
-    string data;
-    string hash;
-
-    Block(int idx, string prevHash, string info) {
-        index = idx;
-        previousHash = prevHash;
-        timestamp = to_string(time(0));
-        data = info;
-        hash = sha256(to_string(index) + previousHash + timestamp + data);
-    }
-};
-
-// Blockchain Class
-class Blockchain {
-public:
-    vector<Block> chain;
-
-    Blockchain() {
-        chain.emplace_back(Block(0, "0", "Genesis Block"));
-    }
-
-    void addBlock(string data) {
-        Block newBlock(chain.size(), chain.back().hash, data);
-        chain.push_back(newBlock);
-    }
-
-    void displayChain() {
-        for (const auto& block : chain) {
-            cout << "Index: " << block.index << "\nPrevious Hash: " << block.previousHash << "\nTimestamp: " << block.timestamp << "\nData: " << block.data << "\nHash: " << block.hash << "\n\n";
-        }
-    }
-};
-
-// Main Execution
-int main() {
-    Blockchain myCoin;
-    myCoin.addBlock("First Transaction: Coin Ox Address - 0xABC123, Ox ID - 0xDEF456");
-    myCoin.displayChain();
-    return 0;
-}
-// Function to create SHA-256 hash
-std::string sha256(const std::string& str) {
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256((unsigned char*)str.c_str(), str.size(), hash);
-    std::stringstream ss;
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-        ss << std::hex << (int)hash[i];
-    }
-    return ss.str();
-}
-
-// Block structure
-struct Block {
-    int index;
-    std::string prevHash;
-    std::string data;
-    time_t timestamp;
-    std::string hash;
-    int nonce;
-
-    // Constructor
-    Block(int idx, std::string prev, std::string d) : index(idx), prevHash(prev), data(d), nonce(0) {
-        timestamp = time(nullptr);
-        hash = calculateHash();
-    }
-
-    // Hash calculation
-    std::string calculateHash() {
-        std::stringstream ss;
-        ss << index << prevHash << data << timestamp << nonce;
-        return sha256(ss.str());
-    }
-
-    // Proof-of-Work: Find a hash with leading zeros
-    void mineBlock(int difficulty) {
-        std::string target(difficulty, '0');
-        while (hash.substr(0, difficulty) != target) {
-            nonce++;
-            hash = calculateHash();
-        }
-        std::cout << "Block Mined: " << hash << std::endl;
-    }
-};
-
-// Blockchain structure
-class Blockchain {
-public:
-    std::vector<Block> chain;
-    int difficulty;
-
-    Blockchain(int diff = 2) : difficulty(diff) {
-        chain.emplace_back(Block(0, "0", "Genesis Block"));
-    }
-
-    void addBlock(std::string data) {
-        Block newBlock(chain.size(), chain.back().hash, data);
-        newBlock.mineBlock(difficulty);
-        chain.push_back(newBlock);
-    }
-};
-
-int main() {
-    Blockchain myCoin;
-    
-    std::cout << "Mining block 1..." << std::endl;
-    myCoin.addBlock("Transaction Data: Alice -> Bob");
-    
-    std::cout << "Mining block 2..." << std::endl;
-    myCoin.addBlock("Transaction Data: Bob -> Charlie");
-    
-    return 0;
-}
 // Function to generate Coin Ox Address
 std::string generateOxAddress() {
     return "0x" + std::to_string(rand() % 10000000000000000); // Placeholder
@@ -226,7 +57,66 @@ void createGenesisBlock(BlockchainConfig& config) {
     std::cout << "Genesis Block Created: " << config.genesisBlock << std::endl;
 }
 
-// Function to simulate Mining configuration (using a thread for multitasking)
+// Function to add a transaction to the queue
+void addTransaction(const Transaction& tx) {
+    std::lock_guard<std::mutex> lock(mtx);
+    transactionQueue.push(tx.toString());
+    std::cout << "Transaction added to queue: " << tx.toString() << std::endl;
+}
+
+// Function to process transactions
+void processTransactions() {
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(5)); // Simulate processing time
+        std::lock_guard<std::mutex> lock(mtx);
+        if (!transactionQueue.empty()) {
+            std::string tx = transactionQueue.front();
+            transactionQueue.pop();
+            std::cout << "Processing transaction: " << tx << std::endl;
+        }
+    }
+}
+
+// P2P Server Function
+void startServer() {
+    try {
+        io_service ioService;
+        tcp::acceptor acceptor(ioService, tcp::endpoint(tcp::v4(), 8080));
+        std::cout << "P2P Node is listening on port 8080...\n";
+
+        while (true) {
+            tcp::socket socket(ioService);
+            acceptor.accept(socket);
+
+            std::string message = "Welcome to the SolScriptCoin Network!";
+            boost::asio::write(socket, boost::asio::buffer(message));
+
+            std::cout << "New peer connected. Message sent.\n";
+        }
+    } catch (std::exception& e) {
+        std::cerr << "Server error: " << e.what() << std::endl;
+    }
+}
+
+// P2P Client Function
+void connectToPeer(const std::string& ip, int port) {
+    try {
+        io_service ioService;
+        tcp::socket socket(ioService);
+        tcp::resolver resolver(ioService);
+        tcp::resolver::query query(ip, std::to_string(port));
+        tcp::resolver::iterator endpoint = resolver.resolve(query);
+        boost::asio::connect(socket, endpoint);
+
+        char response[128];
+        size_t len = socket.read_some(boost::asio::buffer(response));
+        std::cout << "Received from peer: " << std::string(response, len) << std::endl;
+    } catch (std::exception& e) {
+        std::cerr << "Client error: " << e.what() << std::endl;
+    }
+}
+
+// Mining Configuration (placeholder for actual mining logic)
 void configureMining() {
     std::cout << "Mining configuration completed!" << std::endl;
 }
@@ -262,7 +152,8 @@ void autoDeployment() {
 void popUpMITLicense() {
     std::cout << "\n-----------------------------------------------\n";
     std::cout << "End of program. Displaying MIT License...\n";
-    displayMITLicense();
+    // Placeholder for actual MIT License display
+    std::cout << "MIT License: Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files to deal in the Software without restriction...\n";
     std::this_thread::sleep_for(std::chrono::seconds(5));  // Wait for user to read
     std::cout << "Exiting program...\n";
 }
@@ -293,4 +184,4 @@ int main() {
     popUpMITLicense();
     
     return 0;
-}              
+}
