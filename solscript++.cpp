@@ -51,7 +51,8 @@ struct Transaction {
         return oss.str();
     }
 };
-
+std::cout << "Queued: " << tx.toString(decimals) << std::endl;
+std::cout << "Transaction added to queue: " << tx.toString(decimals) << std::endl;
 void addTransaction(const Transaction& tx, int decimals) {
     std::lock_guard<std::mutex> lock(mtx);
     transactionQueue.push(tx.toString(decimals));
@@ -73,6 +74,13 @@ struct Block {
             ss << tx.toString();
         }
         unsigned char hashBytes[SHA256_DIGEST_LENGTH];
+SHA256(reinterpret_cast<const unsigned char*>(ss.str().c_str()), ss.str().size(), hashBytes);
+std::ostringstream hexHash;
+for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+    hexHash << std::hex << std::setw(2) << std::setfill('0') << (int)hashBytes[i];
+}
+return hexHash.str();
+        unsigned char hashBytes[SHA256_DIGEST_LENGTH];
         SHA256(reinterpret_cast<const unsigned char*>(ss.str().c_str()), ss.str().size(), hashBytes);
         std::ostringstream hexHash;
         for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
@@ -86,17 +94,18 @@ struct Block {
         do {
             nonce++;
             hash = calculateHash();
-        } while (hash.substr(0, difficulty) != target);
-        std::cout << "Block mined: " << hash << std::endl;
-    }
-};
+        while (hash.substr(0, difficulty) != target) {
+    nonce++;
+    hash = calculateHash();
+}
 
 // === Blockchain Logic ===
 class Blockchain {
 public:
     std::vector<Block> chain;
     int difficulty = 4;
-
+std::cout << "[Genesis Created]: " << cfg.genesisBlock << "\n";
+std::cout << "[Supply]: " << cfg.totalSupply / std::pow(10, cfg.decimals) << " " << cfg.coinName << "\n";
     Blockchain() {
         Block genesis;
         genesis.timestamp = std::time(0);
@@ -133,7 +142,22 @@ public:
         }
         return result.str();
     }
-
+private:
+    std::string sha256(const std::string& data) {
+        unsigned char hash[SHA256_DIGEST_LENGTH];
+        SHA256_CTX sha256_CTX;
+        SHA256_Init(&sha256_CTX);
+        SHA256_Update(&sha256_CTX, data.c_str(), data.length());
+        SHA256_Final(hash, &sha256_CTX);
+        
+        std::stringstream ss;
+        for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+            ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+        }
+        return ss.str();
+    }std::string response = 
+    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"
+    "{\"status\":\"online\",\"message\":\"SolScriptCoin blockchain API active.\",\"timestamp\":\"" + std::to_string(std::time(0)) + "\"}";
     void printChain() const {
         for (const auto& blk : chain) {
             std::cout << "[Block Hash]: " << blk.hash << "\n";
@@ -161,7 +185,8 @@ void deploySolidityContract(const std::string& source) {
     std::string address = web3.deployContract(bytecode);
     std::cout << "[Deployed at]: " << address << std::endl;
 }
-
+std::cout << "[JavaScript logic detected] (Execution placeholder)\n";
+// Future: Integrate Node.js/V8 C++ embedding here
 // === Basic HTTP API Server ===
 void startHTTPServer() {
     io_service ios;
