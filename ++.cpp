@@ -29,9 +29,10 @@ struct BlockchainConfig {
     std::string oxAddress;
     std::string oxID;
     std::string genesisBlock;
-    double totalSupply = 1000000000000;
+    double totalSupply = 1000000000000; // Total supply in base units
     double burnRate = 0.02;
     double ownerVault = 1000000000;
+    int decimals = 1; // 1 decimal place (1e1 representation)
 };
 
 // Transaction Structure
@@ -40,11 +41,20 @@ struct Transaction {
     std::string receiver;
     double amount;
 
-    std::string toString() const {
-        return "Sender: " + sender + " | Receiver: " + receiver + " | Amount: " + std::to_string(amount);
+    // Convert amount to string with decimals
+    std::string toString(int decimals) const {
+        std::ostringstream oss;
+        oss.precision(decimals);
+        oss << std::fixed << "Sender: " << sender << " | Receiver: " << receiver << " | Amount: " << amount / std::pow(10, decimals);
+        return oss.str();
     }
 };
-
+// Function to add a transaction to the queue
+void addTransaction(const Transaction& tx, int decimals) {
+    std::lock_guard<std::mutex> lock(mtx);
+    transactionQueue.push(tx.toString(decimals));
+    std::cout << "Transaction added to queue: " << tx.toString(decimals) << std::endl;
+}
 // Block Structure for Blockchain
 struct Block {
     std::string previousHash;
@@ -90,7 +100,12 @@ public:
         genesisBlock.hash = genesisBlock.calculateHash();
         chain.push_back(genesisBlock);
     }
-
+// Function to create the Genesis Block (blockchain's first block)
+void createGenesisBlock(BlockchainConfig& config) {
+    config.genesisBlock = "Genesis Block for " + config.coinName;
+    std::cout << "Genesis Block Created: " << config.genesisBlock << std::endl;
+    std::cout << "Total Supply (adjusted for decimals): " << config.totalSupply / std::pow(10, config.decimals) << " " << config.coinName << std::endl;
+}
     void addBlock(Block& newBlock) {
         newBlock.previousHash = chain.back().hash;
         newBlock.hash = newBlock.calculateHash();
