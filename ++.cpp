@@ -13,9 +13,12 @@
 #include <boost/asio.hpp>  // Boost library for networking
 #include <openssl/sha.h>  // OpenSSL for cryptographic hashing
 #include <openssl/evp.h>  // For SHA256
+#include <nlohmann/json.hpp> // JSON library for API interaction
+#include "web3cpp.h" // Web3 C++ library for Solidity interaction
 
 using namespace boost::asio;
 using ip::tcp;
+using json = nlohmann::json;
 
 std::mutex mtx;  // Mutex for thread safety
 std::queue<std::string> transactionQueue;  // Simple transaction queue
@@ -117,148 +120,63 @@ private:
     }
 };
 
-// Function to generate Coin Ox Address
-std::string generateOxAddress() {
-    return "0x" + std::to_string(rand() % 10000000000000000); // Placeholder
+// Function to integrate Solidity
+void deploySolidityContract(const std::string& contractSource) {
+    web3::Web3 web3("http://localhost:8545"); // Connect to Ethereum node
+    std::string bytecode = web3.compileSolidity(contractSource); // Compile contract
+    std::string contractAddress = web3.deployContract(bytecode); // Deploy contract
+    std::cout << "Deployed Solidity Contract at address: " << contractAddress << std::endl;
 }
 
-// Function to generate Ox ID
-std::string generateOxID() {
-    return "OXC-" + std::to_string(rand() % 1000000); // Placeholder
-}
+// Function to expose APIs for JavaScript
+void startHTTPServer() {
+    io_service ioService;
+    tcp::acceptor acceptor(ioService, tcp::endpoint(tcp::v4(), 8081));
+    std::cout << "HTTP Server listening on port 8081...\n";
 
-// Function to create the Genesis Block (blockchain's first block)
-void createGenesisBlock(BlockchainConfig& config) {
-    config.genesisBlock = "Genesis Block for " + config.coinName;
-    std::cout << "Genesis Block Created: " << config.genesisBlock << std::endl;
-}
-
-// Function to add a transaction to the queue
-void addTransaction(const Transaction& tx) {
-    std::lock_guard<std::mutex> lock(mtx);
-    transactionQueue.push(tx.toString());
-    std::cout << "Transaction added to queue: " << tx.toString() << std::endl;
-}
-
-// Function to process transactions
-void processTransactions() {
     while (true) {
-        std::this_thread::sleep_for(std::chrono::seconds(5)); // Simulate processing time
-        std::lock_guard<std::mutex> lock(mtx);
-        if (!transactionQueue.empty()) {
-            std::string tx = transactionQueue.front();
-            transactionQueue.pop();
-            std::cout << "Processing transaction: " << tx << std::endl;
-        }
-    }
-}
-
-// P2P Server Function
-void startServer() {
-    try {
-        io_service ioService;
-        tcp::acceptor acceptor(ioService, tcp::endpoint(tcp::v4(), 8080));
-        std::cout << "P2P Node is listening on port 8080...\n";
-
-        while (true) {
-            tcp::socket socket(ioService);
-            acceptor.accept(socket);
-
-            std::string message = "Welcome to the SolScriptCoin Network!";
-            boost::asio::write(socket, boost::asio::buffer(message));
-
-            std::cout << "New peer connected. Message sent.\n";
-        }
-    } catch (std::exception& e) {
-        std::cerr << "Server error: " << e.what() << std::endl;
-    }
-}
-
-// P2P Client Function
-void connectToPeer(const std::string& ip, int port) {
-    try {
-        io_service ioService;
         tcp::socket socket(ioService);
-        tcp::resolver resolver(ioService);
-        tcp::resolver::query query(ip, std::to_string(port));
-        tcp::resolver::iterator endpoint = resolver.resolve(query);
-        boost::asio::connect(socket, endpoint);
+        acceptor.accept(socket);
 
-        char response[128];
-        size_t len = socket.read_some(boost::asio::buffer(response));
-        std::cout << "Received from peer: " << std::string(response, len) << std::endl;
-    } catch (std::exception& e) {
-        std::cerr << "Client error: " << e.what() << std::endl;
+        std::string message = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"message\": \"Welcome to SolScript HTTP API\"}";
+        boost::asio::write(socket, boost::asio::buffer(message));
+
+        std::cout << "HTTP API accessed. Response sent.\n";
     }
 }
 
-// Mining Configuration (proof-of-work)
-void configureMining() {
-    std::cout << "Mining configuration completed!" << std::endl;
-}
+// Function to parse and execute SolScript files
+void executeSolScript(const std::string& scriptPath) {
+    std::ifstream file(scriptPath);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open SolScript file: " << scriptPath << std::endl;
+        return;
+    }
 
-// Function for auto deployment of blockchain setup
-void autoDeployment() {
-    std::cout << "Setting up Blockchain Network...\n";
-    
-    // Using smart pointers for memory management
-    auto config = std::make_shared<BlockchainConfig>();
-    
-    // Generating Ox Address & Ox ID
-    config->oxAddress = generateOxAddress();
-    config->oxID = generateOxID();
-    
-    createGenesisBlock(*config); // Pass config by reference
-    
-    // Start mining configuration in a separate thread for multithreading
-    std::thread miningThread(configureMining); 
-    
-    // Wait for the mining thread to finish
-    miningThread.join();
-    
-    std::cout << "Blockchain Network Setup Complete\n";
-    
-    // Simulating connection to an external platform
-    std::cout << "Connecting to external platform...\n";
-    // Here, you can implement API logic for connecting to external platforms
-    std::cout << "Connected to Coinbase or equivalent platform\n";
-}
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string content = buffer.str();
 
-// Function to simulate automatic pop-up of the MIT License
-void popUpMITLicense() {
-    std::cout << "\n-----------------------------------------------\n";
-    std::cout << "End of program. Displaying MIT License...\n";
-    // Placeholder for actual MIT License display
-    std::cout << "MIT License: Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files to deal in the Software without restriction...\n";
-    std::this_thread::sleep_for(std::chrono::seconds(5));  // Wait for user to read
-    std::cout << "Exiting program...\n";
-}
-
-// Function to run terminal or PowerShell commands dynamically
-void runCommand(const std::string& command) {
-    std::system(command.c_str()); // Executes the provided command (e.g., PowerShell or Terminal commands)
+    // Simple parsing logic (expand as needed)
+    if (content.find("contract") != std::string::npos) {
+        std::cout << "Deploying Solidity contract from SolScript...\n";
+        deploySolidityContract(content);
+    } else {
+        std::cout << "Executing JavaScript logic from SolScript...\n";
+        // Add JavaScript execution logic here
+    }
 }
 
 int main() {
-    // Automatically trigger the deployment and setup of the blockchain
+    // Start blockchain setup
     autoDeployment();
-    
-    // Auto-trigger PowerShell or Terminal commands after blockchain setup
-    // Example for Windows (PowerShell) and UNIX (Bash)
-    std::string platformCommand;
-    
-    #ifdef _WIN32  // Check if on Windows
-        platformCommand = "powershell -Command \"echo Blockchain Setup Complete\"";
-    #else // Assuming UNIX-like system
-        platformCommand = "bash -c \"echo Blockchain Setup Complete\"";
-    #endif
 
-    // Run the command to indicate successful deployment
-    runCommand(platformCommand);
-    
-    // Trigger MIT License pop-up before exit
-    popUpMITLicense();
-    
+    // Start HTTP server for JavaScript API
+    std::thread httpServerThread(startHTTPServer);
+
+    // Execute a sample SolScript file
+    executeSolScript("sample.solscript");
+
+    httpServerThread.join();
     return 0;
 }
-
