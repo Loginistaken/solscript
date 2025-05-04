@@ -17,7 +17,7 @@
 #include <openssl/evp.h>
 #include <nlohmann/json.hpp>
 #include "web3cpp.h"  // Assume this is implemented
-
+#include <chrono>
 using namespace boost::asio;
 using ip::tcp;
 using json = nlohmann::json;
@@ -140,7 +140,20 @@ public:
         }
     }
 };
-
+private:
+    std::string sha256(const std::string& data) {
+        unsigned char hash[SHA256_DIGEST_LENGTH];
+        SHA256_CTX sha256_CTX;
+        SHA256_Init(&sha256_CTX);
+        SHA256_Update(&sha256_CTX, data.c_str(), data.length());
+        SHA256_Final(hash, &sha256_CTX);
+        
+        std::stringstream ss;
+        for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+            ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+        }
+        return ss.str();
+    }
 // === Solidity Deployment Logic ===
 void deploySolidityContract(const std::string& source) {
     web3::Web3 web3("http://localhost:8545");
