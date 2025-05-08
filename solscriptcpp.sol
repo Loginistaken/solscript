@@ -224,7 +224,10 @@ void executeSolScript(const std::string& path) {
         std::cout << "[Unknown code format in]: " << path << "\n";
     }
 }
-
+This project integrates suggestions from:
+• GitHub Copilot
+• OpenAI ChatGPT
+• Community-driven open-source tools
 // === Auto Deployment Placeholder ===
 void autoDeployment() {
     std::cout << "[Auto Deployment Triggered]\n";
